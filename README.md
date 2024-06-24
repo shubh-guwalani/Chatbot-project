@@ -1,45 +1,40 @@
 import umap
+from hdbscan import HDBSCAN
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
-from sklearn.metrics import pairwise_distances
-import numpy as np
+from sklearn.metrics import silhouette_score
 
-# Assuming 'embeddings' is your input data for UMAP
-# Replace this with your actual data
+# Assuming 'embeddings' is the result from the optimized UMAP model
 # embeddings = ...
 
-# Define the objective function
+# Define the objective function for HDBSCAN
 def objective(params):
     # Unpack the parameters
-    n_neighbors = int(params['n_neighbors'])
-    n_components = int(params['n_components'])
-    min_dist = params['min_dist']
-    metric = params['metric']
+    min_cluster_size = int(params['min_cluster_size'])
+    min_samples = int(params['min_samples'])
+    cluster_selection_method = params['cluster_selection_method']
     
-    # Initialize and fit UMAP
-    reducer = umap.UMAP(n_neighbors=n_neighbors, 
-                        n_components=n_components, 
-                        min_dist=min_dist, 
-                        metric=metric, 
-                        random_state=42)
-    embedding = reducer.fit_transform(embeddings)
+    # Initialize and fit HDBSCAN
+    hdb_model = HDBSCAN(min_cluster_size=min_cluster_size, 
+                        min_samples=min_samples, 
+                        metric='euclidean',  # Keeping metric as euclidean for simplicity
+                        cluster_selection_method=cluster_selection_method, 
+                        prediction_data=True)
     
-    # Calculate the pairwise distances in the original space
-    original_distances = pairwise_distances(embeddings)
+    hdb_model.fit(embeddings)
     
-    # Calculate the pairwise distances in the embedded space
-    embedded_distances = pairwise_distances(embedding)
+    # Evaluate the clustering using silhouette score
+    if len(set(hdb_model.labels_)) > 1:  # More than one cluster
+        score = silhouette_score(embeddings, hdb_model.labels_)
+    else:
+        score = -1  # Poor score if only one cluster is found
     
-    # Compute the stress (a measure of distortion between the original and embedded spaces)
-    stress = np.sum((original_distances - embedded_distances)**2)
-    
-    return {'loss': stress, 'status': STATUS_OK}
+    return {'loss': -score, 'status': STATUS_OK}  # We negate the score because Hyperopt minimizes the objective
 
 # Define the search space
 space = {
-    'n_neighbors': hp.quniform('n_neighbors', 2, 50, 1),
-    'n_components': hp.quniform('n_components', 2, 10, 1),
-    'min_dist': hp.uniform('min_dist', 0.001, 0.5),
-    'metric': hp.choice('metric', ['euclidean', 'manhattan', 'cosine', 'chebyshev', 'minkowski'])
+    'min_cluster_size': hp.quniform('min_cluster_size', 50, 300, 1),
+    'min_samples': hp.quniform('min_samples', 1, 100, 1),
+    'cluster_selection_method': hp.choice('cluster_selection_method', ['eom', 'leaf'])
 }
 
 # Run the optimization
@@ -53,16 +48,16 @@ best = fmin(fn=objective,
 # Print the best parameters
 print("Best parameters:", best)
 
-# If you need to convert 'metric' from its index to the actual metric string
-metrics = ['euclidean', 'manhattan', 'cosine', 'chebyshev', 'minkowski']
-best['metric'] = metrics[best['metric']]
+# If you need to convert 'cluster_selection_method' from its index to the actual method string
+cluster_selection_methods = ['eom', 'leaf']
+best['cluster_selection_method'] = cluster_selection_methods[best['cluster_selection_method']]
 
-# Use the best parameters to fit UMAP
-best_umap = umap.UMAP(n_neighbors=int(best['n_neighbors']), 
-                      n_components=int(best['n_components']), 
-                      min_dist=best['min_dist'], 
-                      metric=best['metric'], 
-                      random_state=42)
-best_embedding = best_umap.fit_transform(embeddings)
+# Use the best parameters to fit HDBSCAN
+best_hdb_model = HDBSCAN(min_cluster_size=int(best['min_cluster_size']), 
+                         min_samples=int(best['min_samples']), 
+                         metric='euclidean', 
+                         cluster_selection_method=best['cluster_selection_method'], 
+                         prediction_data=True)
+best_hdb_model.fit(embeddings)
 
-print("Best UMAP embedding shape:", best_embedding.shape)
+print("Best HDBSCAN model labels:", best_hdb_model.labels_)
