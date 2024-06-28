@@ -1,52 +1,58 @@
 import pandas as pd
-from collections import Counter
+from collections import defaultdict
 
-# Load the dataset
-df = pd.read_csv('reddit_news.csv')
+# Example dataset
+data = {
+    'cluster': [0, 1, 0, 1, 0],
+    'document': [
+        "This is example text", 
+        "This is sample data", 
+        "This is test document", 
+        "Another example data", 
+        "More text data"
+    ],
+    'keywords': [
+        ['example', 'text'], 
+        ['sample', 'data'], 
+        ['test', 'document'], 
+        ['example', 'data'], 
+        ['text', 'data']
+    ]
+}
 
-# Ensure creation_date is in datetime format
-df['creation_date'] = pd.to_datetime(df['creation_date'])
+df = pd.DataFrame(data)
 
-# Extract date only (without time) if needed
-df['date'] = df['creation_date'].dt.date
+# Calculate Intra-Cluster Document Frequency
+intra_cluster_freq = defaultdict(lambda: defaultdict(int))
 
-# Function to count and rank keywords for each date
-def rank_keywords_by_date(df):
-    # Create a dictionary to store the results
-    result = {}
+for _, row in df.iterrows():
+    cluster = row['cluster']
+    keywords = row['keywords']
+    for keyword in keywords:
+        intra_cluster_freq[cluster][keyword] += 1
 
-    # Group by date
-    grouped = df.groupby('date')
-    for date, group in grouped:
-        # Combine all keywords for the date
-        all_keywords = []
-        for keywords in group['keywords']:
-            all_keywords.extend(keywords.split(','))  # Assuming keywords are comma-separated
-        
-        # Count the frequency of each keyword
-        keyword_counts = Counter(all_keywords)
-        
-        # Rank keywords based on frequency
-        ranked_keywords = keyword_counts.most_common()
-        
-        # Store the result
-        result[date] = ranked_keywords
+intra_df = pd.DataFrame(intra_cluster_freq).fillna(0)
+print("Intra-Cluster Frequencies:\n", intra_df)
 
-    return result
+# Calculate Inter-Cluster Document Frequency
+inter_cluster_freq = defaultdict(int)
 
-# Rank keywords by date
-ranked_keywords_by_date = rank_keywords_by_date(df)
+for keywords in df['keywords']:
+    for keyword in keywords:
+        inter_cluster_freq[keyword] += 1
 
-# Convert the result to a DataFrame for better visualization
-ranked_df_list = []
-for date, keywords in ranked_keywords_by_date.items():
-    for rank, (keyword, count) in enumerate(keywords, start=1):
-        ranked_df_list.append({'date': date, 'rank': rank, 'keyword': keyword, 'count': count})
+inter_df = pd.Series(inter_cluster_freq).fillna(0)
+print("\nInter-Cluster Frequencies:\n", inter_df)
 
-ranked_df = pd.DataFrame(ranked_df_list)
+# Rank Keywords
+intra_rankings = {cluster: freq.sort_values(ascending=False) for cluster, freq in intra_df.items()}
+inter_rankings = inter_df.sort_values(ascending=False)
 
-# Save the result to a CSV file
-ranked_df.to_csv('ranked_keywords_by_date.csv', index=False)
+# Display rankings
+print("\nIntra-Cluster Rankings:")
+for cluster, ranking in intra_rankings.items():
+    print(f"Cluster {cluster}:")
+    print(ranking)
 
-# Print the result
-print(ranked_df.head())
+print("\nInter-Cluster Rankings:")
+print(inter_rankings)
