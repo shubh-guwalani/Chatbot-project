@@ -1,32 +1,56 @@
-# Sample data: lists of keywords and documents
-keywords = ["keyword1", "keyword2", "keyword3", "keyword4"]
-documents = [
-    "This document contains keyword1 and keyword2.",
-    "This document contains keyword2 and keyword3.",
-    "This document contains keyword3 and keyword4.",
-    "This document contains keyword1 and keyword4.",
-]
+import itertools
+import pandas as pd
+import matplotlib.pyplot as plt
 
-# Function to rank keywords based on document frequency
-def rank_keywords_by_doc_frequency(keywords, documents):
-    # Initialize a dictionary to store keyword frequencies
-    keyword_frequency = {keyword: 0 for keyword in keywords}
+# Define colors for the visualization to iterate over
+colors = itertools.cycle([
+    '#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', 
+    '#911eb4', '#46f0f0', '#f032e6', '#bcf60c', '#fabebe', 
+    '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000', 
+    '#aaffc3', '#808000', '#ffd8b1', '#000075', '#808080', 
+    '#ffffff', '#000000'
+])
 
-    # Iterate over each document
-    for doc in documents:
-        # Check each keyword in the document
-        for keyword in keywords:
-            if keyword in doc:
-                keyword_frequency[keyword] += 1
+# Assuming `topic_model.topics_` and `topic_model` are defined elsewhere
+# Ensure that -1 is excluded from the set of topics
+topic_set = set(topic_model.topics_) - {-1}
 
-    # Sort the keywords by their frequency in descending order
-    sorted_keywords = sorted(keyword_frequency.items(), key=lambda item: item[1], reverse=True)
+# Assign colors to topics
+color_key = {str(topic): next(colors) for topic in topic_set}
 
-    return sorted_keywords
+# Debug: Print the color_key to check color assignments
+print("Color Key:", color_key)
 
-# Rank the keywords
-ranked_keywords = rank_keywords_by_doc_frequency(keywords, documents)
+# Prepare dataframe and ignore outliers
+df = pd.DataFrame({
+    "x": reduced_embeddings[:, 0],
+    "y": reduced_embeddings[:, 1],
+    "Topic": [str(t) for t in topic_model.topics_]
+})
+df["Length"] = [len(doc) for doc in abstracts]
+df = df.loc[df.Topic != "-1"]
+df = df.loc[(df.y > -10) & (df.y < 10) & (df.x < 10) & (df.x > -10), :]
+df["Topic"] = df["Topic"].astype("category")
 
-# Print the ranked keywords
-for keyword, frequency in ranked_keywords:
-    print(f"Keyword: {keyword}, Frequency: {frequency}")
+# Debug: Print the dataframe to inspect
+print("DataFrame Head:\n", df.head())
+
+# Get centroids of clusters
+mean_df = df.groupby("Topic").mean().reset_index()
+mean_df["Topic"] = mean_df["Topic"].astype(int)
+mean_df = mean_df.sort_values("Topic")
+
+# Debug: Print the mean dataframe to inspect
+print("Mean DataFrame Head:\n", mean_df.head())
+
+# Example plot to visualize the data
+plt.figure(figsize=(10, 8))
+for topic, color in color_key.items():
+    topic_data = df[df["Topic"] == topic]
+    plt.scatter(topic_data["x"], topic_data["y"], c=color, label=f"Topic {topic}")
+
+plt.legend()
+plt.xlabel('x')
+plt.ylabel('y')
+plt.title('Topic Visualization')
+plt.show()
