@@ -6,8 +6,10 @@ from skopt import BayesSearchCV
 from skopt.space import Real, Integer
 from skopt.utils import use_named_args
 from sklearn.pipeline import Pipeline
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.metrics import silhouette_score
+from sklearn.model_selection import KFold
 from sentence_transformers import SentenceTransformer
-from sklearn.datasets import make_blobs
 
 # Example sentences
 sentences = [
@@ -63,6 +65,7 @@ pipe = Pipeline([
 @use_named_args(param_grid)
 def objective(**params):
     pipe.set_params(**params)
+    kf = KFold(n_splits=3)
     silhouette_scores = []
     for train_index, test_index in kf.split(X):
         X_train, X_test = X[train_index], X[test_index]
