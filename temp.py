@@ -6,20 +6,19 @@ from adjustText import adjust_text
 import matplotlib.patheffects as pe
 import textwrap
 
-# Define colors for the visualization to iterate over
+# Define colors for the visualization to iterate over, including a color for -1 topic
 colors = itertools.cycle([
     '#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', 
     '#911eb4', '#46f0f0', '#f032e6', '#bcf60c', '#fabebe', 
     '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000', 
     '#aaffc3', '#808000', '#ffd8b1', '#000075', '#808080', 
-    '#ffffff', '#000000'
+    '#ffffff', '#000000', '#ff69b4'  # Added an extra color for topic -1
 ])
 
 # Assuming `topic_model.topics_` and `topic_model` are defined elsewhere
-# Ensure that -1 is excluded from the set of topics
-topic_set = set(topic_model.topics_) - {-1}
+topic_set = set(topic_model.topics_)
 
-# Assign colors to topics
+# Assign colors to topics, including -1
 color_key = {str(topic): next(colors) for topic in topic_set}
 
 # Debug: Print the color_key to check color assignments
@@ -32,7 +31,6 @@ df = pd.DataFrame({
     "Topic": [str(t) for t in topic_model.topics_]
 })
 df["Length"] = [len(doc) for doc in abstracts]
-df = df.loc[df.Topic != "-1"]
 df = df.loc[(df.y > -10) & (df.y < 10) & (df.x < 10) & (df.x > -10), :]
 df["Topic"] = df["Topic"].astype("category")
 
@@ -49,7 +47,13 @@ print("Mean DataFrame Head:\n", mean_df.head())
 
 # Plotting with seaborn and matplotlib
 fig = plt.figure(figsize=(20, 20))
-sns.scatterplot(data=df, x='x', y='y', hue='Topic', palette=color_key, alpha=0.4, sizes=(0.4, 10), size="Length")
+ax = fig.add_subplot(111, facecolor='black')  # Set background to black
+
+# Adjust seaborn plot style to fit black background
+sns.set_style("whitegrid", {'axes.edgecolor': 'white', 'xtick.color': 'white', 'ytick.color': 'white', 'grid.color': 'gray'})
+
+# Plot scatterplot
+sns.scatterplot(data=df, x='x', y='y', hue='Topic', palette=color_key, alpha=0.4, sizes=(0.4, 10), size="Length", ax=ax)
 
 # Annotate top 50 topics
 texts, xs, ys = [], [], []
