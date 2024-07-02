@@ -6,13 +6,13 @@ from adjustText import adjust_text
 import matplotlib.patheffects as pe
 import textwrap
 
-# Define colors for the visualization to iterate over, including a color for -1 topic
+# Define vibrant colors for the visualization to iterate over, including a color for -1 topic
 colors = itertools.cycle([
-    '#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', 
-    '#911eb4', '#46f0f0', '#f032e6', '#bcf60c', '#fabebe', 
-    '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000', 
-    '#aaffc3', '#808000', '#ffd8b1', '#000075', '#808080', 
-    '#ffffff', '#000000', '#ff69b4'  # Added an extra color for topic -1
+    '#FF5733', '#33FF57', '#5733FF', '#33D7FF', '#FF33D7', 
+    '#FFD733', '#FF33A8', '#33FFB5', '#FF8C33', '#3385FF', 
+    '#A833FF', '#FF5733', '#FF33F6', '#33FFF6', '#FFF633', 
+    '#FF3366', '#66FF33', '#FF6633', '#3366FF', '#33FF99', 
+    '#9933FF', '#FF3399', '#FF9933', '#33FF33', '#FF33FF'
 ])
 
 # Assuming `topic_model.topics_` and `topic_model` are defined elsewhere
@@ -46,11 +46,14 @@ mean_df = mean_df.sort_values("Topic")
 print("Mean DataFrame Head:\n", mean_df.head())
 
 # Plotting with seaborn and matplotlib
-fig = plt.figure(figsize=(20, 20))
-ax = fig.add_subplot(111, facecolor='black')  # Set background to black
+fig, ax = plt.subplots(figsize=(20, 20))
+
+# Set the background color to black
+fig.patch.set_facecolor('black')
+ax.set_facecolor('black')
 
 # Adjust seaborn plot style to fit black background
-sns.set_style("whitegrid", {'axes.edgecolor': 'white', 'xtick.color': 'white', 'ytick.color': 'white', 'grid.color': 'gray'})
+sns.set(style="white", rc={"axes.facecolor": "black", "figure.facecolor": "black", "grid.color": ".6", "grid.linestyle": "--"})
 
 # Plot scatterplot
 sns.scatterplot(data=df, x='x', y='y', hue='Topic', palette=color_key, alpha=0.4, sizes=(0.4, 10), size="Length", ax=ax)
