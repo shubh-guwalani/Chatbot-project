@@ -1,62 +1,31 @@
-from hyperopt import fmin, tpe, hp, Trials, STATUS_OK
-from hdbscan import HDBSCAN
-from sklearn.metrics import silhouette_score
-import matplotlib.pyplot as plt
+from transformers import BertTokenizer, BertModel
+import torch
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 
-# Define the objective function
-def objective(params):
-    # Extract parameters
-    min_cluster_size = params['min_cluster_size']
-    metric = params['metric']
-    cluster_selection_method = params['cluster_selection_method']
+# Load pre-trained BERT model and tokenizer
+tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+model = BertModel.from_pretrained('bert-base-uncased')
 
-    # Initialize HDBSCAN model with parameters
-    hdbscan_model = HDBSCAN(
-        min_cluster_size=min_cluster_size,
-        metric=metric,
-        cluster_selection_method=cluster_selection_method,
-        prediction_data=True
-    )
+def embed_text(text, tokenizer, model):
+    tokens = tokenizer(text, return_tensors='pt', truncation=True, padding=True)
+    with torch.no_grad():
+        outputs = model(**tokens)
+    return outputs.last_hidden_state.mean(dim=1).numpy()
+
+def find_most_relevant_articles(titles, articles):
+    title_embeddings = [embed_text(title, tokenizer, model) for title in titles]
+    article_embeddings = [embed_text(article, tokenizer, model) for article in articles]
     
-    # Fit the model to your data (assuming X is your dataset)
-    hdbscan_model.fit(X)
+    relevance_scores = cosine_similarity(np.vstack(title_embeddings), np.vstack(article_embeddings))
     
-    # Get the labels and calculate silhouette score
-    labels = hdbscan_model.labels_
-    
-    # Silhouette score is only defined if number of labels is greater than 1 and less than number of samples
-    if len(set(labels)) > 1 and len(set(labels)) < len(labels):
-        score = silhouette_score(X, labels)
-    else:
-        score = -1  # Poor score if the model doesn't produce enough clusters
-    
-    # Hyperopt tries to minimize the objective function, so return the negative silhouette score
-    return {'loss': -score, 'status': STATUS_OK}
+    most_relevant_articles = relevance_scores.argmax(axis=1)
+    return most_relevant_articles
 
-# Define the parameter space
-space = {
-    'min_cluster_size': hp.choice('min_cluster_size', range(2, 100)),
-    'metric': hp.choice('metric', ['euclidean', 'manhattan', 'cosine']),
-    'cluster_selection_method': hp.choice('cluster_selection_method', ['eom', 'leaf'])
-}
+# Example lists
+titles = ["Example title 1", "Example title 2", "Example title 3"]
+articles = ["This is the content of the first article.", "This is the second article content.", "Content of the third article."]
 
-# Run the optimization
-trials = Trials()
-best = fmin(
-    fn=objective,
-    space=space,
-    algo=tpe.suggest,
-    max_evals=100,  # Adjust the number of evaluations as needed
-    trials=trials
-)
-
-print("Best parameters:", best)
-
-# Plot the loss function
-losses = [trial['result']['loss'] for trial in trials.trials]
-plt.figure(figsize=(10, 6))
-plt.plot(losses)
-plt.xlabel('Trial')
-plt.ylabel('Loss (Negative Silhouette Score)')
-plt.title('Hyperopt Optimization Loss')
-plt.show()
+most_relevant_articles_indices = find_most_relevant_articles(titles, articles)
+for i, index in enumerate(most_relevant_articles_indices):
+    print(f"Title: {titles[i]}\nMost Relevant Article: {articles[index]}\n")
